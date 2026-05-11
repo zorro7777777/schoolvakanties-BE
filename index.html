@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Schoolvakanties België</title>
+<meta name="theme-color" content="#000000">
+<meta name="description" content="Schoolvakanties, feestdagen en kalender voor alle Belgische onderwijsgemeenschappen. Vlaanderen, Franstalig en Duitstalig — volledig offline PWA.">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Schoolvak BE">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
+<style>
+:root{
+  --gold:#ff9d2f;--bg:#000;--panel:#0a0a0a;--panel2:#111;
+  --green:#00ff00;--dim-green:rgba(0,255,0,0.12);
+  --red:#ff6b6b;--blue:#4488ff;--dim-blue:rgba(68,136,255,0.12);
+  --border:#1a1a1a;--text:#fff;--muted:#666;
+  --nav-h:calc(60px + env(safe-area-inset-bottom));
+  --header-h:44px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;}
+html,body{height:100%;overflow:hidden;}
+body{background:var(--bg);color:var(--text);font-family:'Courier New',monospace;display:flex;flex-direction:column;}
+
+/* ── HEADER ── */
+#app-header{
+  display:flex;justify-content:space-between;align-items:center;
+  font-size:0.68rem;color:var(--green);
+  padding:6px 12px;border-bottom:1px solid var(--border);
+  height:var(--header-h);flex-shrink:0;gap:8px;
+}
+.hdr-left{display:flex;align-items:center;gap:8px;flex:1;min-width:0;}
+.hdr-dot{width:8px;height:8px;background:var(--green);border-radius:50%;flex-shrink:0;animation:blink 1.4s steps(2,start) infinite;}
+@keyframes blink{to{visibility:hidden;}}
+#hdr-title{font-size:0.7rem;font-weight:bold;text-transform:uppercase;letter-spacing:2px;white-space:nowrap;}
+#hdr-right{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+#hdr-paas{font-size:0.56rem;color:var(--gold);letter-spacing:0.5px;white-space:nowrap;}
+#jaar-select{
+  background:#0a0a0a;border:1px solid #333;color:var(--green);
+  font-family:'Courier New',monospace;font-size:0.64rem;font-weight:bold;
+  padding:3px 7px;outline:none;-webkit-appearance:none;cursor:pointer;letter-spacing:1px;
+}
+
+/* ── APP SHELL ── */
+#app{flex:1;overflow:hidden;position:relative;display:flex;flex-direction:column;min-height:0;}
+
+/* ── VIEWS ── */
+.view{flex:1;display:none;flex-direction:column;padding:10px 12px 8px;overflow-y:auto;gap:0;min-height:0;-webkit-overflow-scrolling:touch;}
+.view.active{display:flex;}
+.view::-webkit-scrollbar{width:2px;}
+.view::-webkit-scrollbar-thumb{background:#222;}
+
+/* LAUNCHER */
+#view-launcher{flex:1;display:none;flex-direction:column;padding:12px;overflow-y:auto;gap:12px;min-height:0;-webkit-overflow-scrolling:touch;}
+#view-launcher.active{display:flex;}
+.launcher-title{font-size:0.58rem;color:var(--green);font-weight:bold;text-transform:uppercase;letter-spacing:2px;padding-bottom:6px;border-bottom:1px solid var(--border);}
+.launcher-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.launcher-tile{
+  background:var(--panel);border:1px solid var(--border);
+  padding:14px 8px;display:flex;flex-direction:column;align-items:center;gap:6px;
+  cursor:pointer;transition:border-color 0.15s,background 0.15s;
+}
+.launcher-tile:active{background:var(--dim-green);border-color:var(--green);}
+.launcher-tile.fav-marked{border-left:3px solid var(--gold);}
+.launcher-icon{font-size:1.6rem;line-height:1;}
+.launcher-label{font-size:0.54rem;color:var(--green);font-weight:bold;text-transform:uppercase;letter-spacing:1px;text-align:center;}
+.launcher-fav-dot{width:6px;height:6px;border-radius:50%;background:var(--gold);opacity:0;transition:opacity 0.2s;}
+.launcher-tile.fav-marked .launcher-fav-dot{opacity:1;}
+.fav-edit-hint{font-size:0.56rem;color:var(--muted);text-align:center;padding:8px;border:1px dashed #222;}
+
+/* ── FAV BAR ── */
+#fav-bar{
+  display:grid;background:#050505;
+  border-top:1px solid var(--green);
+  height:var(--nav-h);padding-bottom:env(safe-area-inset-bottom);
+  flex-shrink:0;
+}
+.fav-item{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  font-size:0.48rem;color:#444;text-transform:uppercase;font-weight:bold;
+  cursor:pointer;padding:0 2px;transition:color 0.15s,background 0.15s;
+}
+.fav-item.active{color:var(--green);background:var(--dim-green);}
+.fav-item:active{filter:brightness(1.5);}
+.fav-icon{font-size:1.1rem;margin-bottom:1px;line-height:1;}
+.fav-launcher{color:#444;}
+.fav-launcher.active{color:var(--green);}
+
+/* ── GEM-TABS (binnen view) ── */
+.gem-tabs-row{display:grid;grid-template-columns:1fr 1fr 1fr;margin-bottom:8px;border:1px solid var(--border);}
+.gem-tab{
+  padding:7px 4px;background:transparent;border:none;border-right:1px solid var(--border);
+  color:var(--muted);font-family:'Courier New',monospace;font-size:0.54rem;font-weight:bold;
+  text-transform:uppercase;cursor:pointer;text-align:center;letter-spacing:0.5px;transition:all 0.12s;
+}
+.gem-tab:last-child{border-right:none;}
+.gem-tab.actief{background:var(--dim-green);color:var(--green);}
+.gem-tab:active{filter:brightness(1.5);}
+.gem-tab-vlag{font-size:0.9rem;display:block;margin-bottom:1px;}
+
+/* ── SECTIE TITEL ── */
+.sectie-titel{
+  font-size:0.54rem;color:var(--green);font-weight:bold;text-transform:uppercase;
+  letter-spacing:2px;padding:10px 0 5px;display:flex;align-items:center;gap:6px;
+}
+.sectie-titel::after{content:'';flex:1;height:1px;background:#1a1a1a;}
+
+/* ── KAART (lijst) ── */
+.kaart{background:var(--panel);border:1px solid var(--border);margin-bottom:4px;overflow:hidden;}
+
+/* ── RIJEN ── */
+.rij{display:flex;align-items:flex-start;padding:9px 11px;border-bottom:1px solid #111;gap:9px;}
+.rij:last-child{border-bottom:none;}
+.rij.voorbij{opacity:0.22;}
+.rij.huidig{background:var(--dim-green);border-left:2px solid var(--green);}
+.rij.volgend{background:rgba(255,157,47,0.07);border-left:2px solid var(--gold);}
+.rij.speciaal{background:var(--dim-blue);border-left:2px solid var(--blue);}
+.rij-icon{width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;margin-top:1px;background:#111;border:1px solid #1a1a1a;}
+.rij.huidig .rij-icon{border-color:var(--green);}
+.rij.volgend .rij-icon{border-color:var(--gold);}
+.rij-body{flex:1;min-width:0;}
+.rij-naam{font-size:0.64rem;font-weight:bold;color:var(--text);text-transform:uppercase;letter-spacing:0.5px;display:flex;align-items:center;gap:5px;flex-wrap:wrap;line-height:1.3;}
+.rij.huidig .rij-naam{color:var(--green);}
+.rij.volgend .rij-naam{color:var(--gold);}
+.rij-fr{font-size:0.52rem;color:var(--muted);font-style:italic;font-weight:normal;text-transform:none;letter-spacing:0;}
+.rij-datum{font-size:0.56rem;color:#555;margin-top:3px;letter-spacing:0.3px;}
+.rij.huidig .rij-datum{color:rgba(0,255,0,0.5);}
+.rij.volgend .rij-datum{color:rgba(255,157,47,0.5);}
+.rij-duur{font-size:0.6rem;font-weight:bold;color:var(--muted);flex-shrink:0;align-self:center;letter-spacing:1px;}
+.rij.huidig .rij-duur{color:var(--green);}
+.rij.volgend .rij-duur{color:var(--gold);}
+
+/* ── BADGES ── */
+.badge{font-size:0.46rem;font-weight:bold;padding:2px 5px;letter-spacing:1px;text-transform:uppercase;}
+.b-now  {background:var(--green);color:#000;}
+.b-next {background:var(--gold);color:#000;}
+.b-info {background:var(--blue);color:#000;}
+.b-gem  {background:#222;color:var(--muted);border:1px solid #333;}
+
+/* ── COUNTDOWN ── */
+#countdown-bar{
+  display:none;padding:5px 12px;font-size:0.58rem;letter-spacing:1px;
+  text-align:center;border-bottom:1px solid #1a1a1a;background:#050505;
+  color:var(--gold);flex-shrink:0;
+}
+#countdown-bar.aktief-vak{color:var(--green);border-color:rgba(0,255,0,0.2);}
+
+/* ── NOTA ── */
+.nota{font-size:0.54rem;color:var(--muted);line-height:1.7;padding:7px 10px;border:1px solid #1a1a1a;border-left:2px solid var(--blue);background:#050505;margin-bottom:6px;letter-spacing:0.3px;}
+.leeg{font-size:0.6rem;color:var(--muted);padding:12px;font-style:italic;letter-spacing:0.5px;}
+
+/* ── EXPORT VIEW ── */
+.exp-card{background:var(--panel);border:1px solid var(--border);border-left:2px solid var(--gold);padding:12px;margin-bottom:8px;}
+.exp-title{font-size:0.58rem;font-weight:bold;color:var(--gold);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;}
+.exp-desc{font-size:0.56rem;color:var(--muted);line-height:1.7;margin-bottom:10px;}
+.exp-btn{display:block;width:100%;background:rgba(255,157,47,0.1);border:1px solid var(--gold);color:var(--gold);font-family:'Courier New',monospace;font-size:0.62rem;font-weight:bold;padding:10px;cursor:pointer;text-transform:uppercase;letter-spacing:1px;text-align:center;margin-bottom:6px;}
+.exp-btn:active{filter:brightness(1.5);}
+.exp-btn.groen{background:var(--dim-green);border-color:var(--green);color:var(--green);}
+.exp-gem-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px;}
+.exp-gem-btn{padding:7px 4px;background:#0a0a0a;border:1px solid #333;color:var(--muted);font-family:'Courier New',monospace;font-size:0.54rem;font-weight:bold;text-transform:uppercase;cursor:pointer;text-align:center;letter-spacing:0.5px;}
+.exp-gem-btn.actief{background:var(--dim-green);border-color:var(--green);color:var(--green);}
+.exp-gem-btn:active{filter:brightness(1.5);}
+
+/* ── PUSH VIEW ── */
+.push-card{background:var(--panel);border:1px solid var(--border);border-left:2px solid var(--blue);padding:12px;margin-bottom:8px;}
+.push-title{font-size:0.58rem;font-weight:bold;color:var(--blue);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;}
+.push-desc{font-size:0.56rem;color:var(--muted);line-height:1.7;margin-bottom:10px;}
+.push-btn{display:block;width:100%;background:var(--dim-blue);border:1px solid var(--blue);color:var(--blue);font-family:'Courier New',monospace;font-size:0.62rem;font-weight:bold;padding:10px;cursor:pointer;text-transform:uppercase;letter-spacing:1px;text-align:center;margin-bottom:6px;}
+.push-btn:active{filter:brightness(1.5);}
+.push-btn.danger{background:rgba(255,107,107,0.1);border-color:var(--red);color:var(--red);}
+.push-status{font-size:0.56rem;padding:7px 10px;text-align:center;margin:4px 0;letter-spacing:0.5px;}
+.push-status.ok{background:rgba(0,255,0,0.08);color:var(--green);border:1px solid #1a3a1a;}
+.push-status.error{background:rgba(255,80,80,0.08);color:var(--red);border:1px solid #3a1a1a;}
+.push-status.pending{background:rgba(68,136,255,0.08);color:var(--blue);border:1px solid #1a2a4a;}
+.setting-row{display:flex;justify-content:space-between;align-items:center;padding:9px 11px;background:var(--panel);border:1px solid var(--border);margin-top:4px;}
+.setting-label{font-size:0.6rem;color:var(--green);font-weight:bold;text-transform:uppercase;letter-spacing:0.5px;}
+.setting-desc{font-size:0.52rem;color:var(--muted);margin-top:2px;}
+.seg-ctrl{display:flex;border:1px solid #333;overflow:hidden;}
+.seg-btn{padding:5px 8px;background:#050505;color:#555;font-family:'Courier New',monospace;font-size:0.54rem;font-weight:bold;text-transform:uppercase;cursor:pointer;border:none;letter-spacing:0.5px;}
+.seg-btn.actief{background:var(--dim-green);color:var(--green);}
+.seg-btn:active{filter:brightness(1.5);}
+
+/* ── VERGELIJK VIEW ── */
+.vgl-keuze{display:grid;grid-template-columns:1fr auto 1fr;gap:6px;align-items:center;margin-bottom:8px;}
+.vgl-sel{background:#0a0a0a;border:1px solid #333;color:var(--green);font-family:'Courier New',monospace;font-size:0.6rem;font-weight:bold;padding:6px 8px;outline:none;-webkit-appearance:none;cursor:pointer;width:100%;}
+.vgl-vs{font-size:0.65rem;color:var(--muted);text-align:center;font-weight:bold;}
+.vgl-header{display:grid;grid-template-columns:1fr 1fr;margin-bottom:4px;}
+.vgl-col-tit{font-size:0.54rem;font-weight:bold;text-transform:uppercase;letter-spacing:1px;padding:5px 10px;border:1px solid #1a1a1a;text-align:center;}
+.vgl-rij{display:grid;grid-template-columns:1fr 1fr;border:1px solid #1a1a1a;margin-bottom:3px;overflow:hidden;}
+.vgl-cel{padding:8px 10px;font-size:0.56rem;border-right:1px solid #1a1a1a;}
+.vgl-cel:last-child{border-right:none;}
+.vgl-cel-naam{font-size:0.58rem;font-weight:bold;color:var(--text);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px;}
+.vgl-cel-datum{font-size:0.53rem;color:#555;letter-spacing:0.3px;}
+.vgl-cel.overlap{background:var(--dim-green);}
+.vgl-cel.alleen{background:rgba(255,157,47,0.06);}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div id="app-header">
+  <div class="hdr-left">
+    <div class="hdr-dot"></div>
+    <div id="hdr-title">📅 Schoolvakanties BE</div>
+  </div>
+  <div id="hdr-right">
+    <select id="jaar-select"></select>
+    <span id="hdr-paas"></span>
+  </div>
+</div>
+
+<div id="countdown-bar"></div>
+
+<!-- APP -->
+<div id="app">
+
+  <!-- LAUNCHER -->
+  <div id="view-launcher">
+    <div class="launcher-title">Alle pagina's</div>
+    <div class="launcher-grid" id="launcher-grid"></div>
+    <div class="fav-edit-hint">Tik lang op een tegel om aan favorieten toe te voegen</div>
+  </div>
+
+  <!-- KALENDER VIEW -->
+  <div id="view-kalender" class="view active">
+    <div class="gem-tabs-row" id="gem-tabs">
+      <button class="gem-tab actief" data-gem="vl"><span class="gem-tab-vlag">🟡</span>Vlaanderen</button>
+      <button class="gem-tab" data-gem="fr"><span class="gem-tab-vlag">🔴</span>Franstalig</button>
+      <button class="gem-tab" data-gem="du"><span class="gem-tab-vlag">🔵</span>Duitstalig</button>
+    </div>
+    <div id="kal-inhoud"></div>
+  </div>
+
+  <!-- VERGELIJK VIEW -->
+  <div id="view-vergelijk" class="view">
+    <div class="vgl-keuze">
+      <select class="vgl-sel" id="vgl-sel-1" onchange="vglGem1=this.value;renderVergelijk()"></select>
+      <div class="vgl-vs">VS</div>
+      <select class="vgl-sel" id="vgl-sel-2" onchange="vglGem2=this.value;renderVergelijk()"></select>
+    </div>
+    <div id="vgl-inhoud"></div>
+  </div>
+
+  <!-- EXPORT VIEW -->
+  <div id="view-export" class="view">
+    <div id="exp-inhoud"></div>
+  </div>
+
+  <!-- PUSH VIEW -->
+  <div id="view-push" class="view">
+    <div id="push-inhoud"></div>
+  </div>
+
+  <!-- PRINT VIEW -->
+  <div id="view-print" class="view">
+    <div id="print-inhoud"></div>
+  </div>
+
+</div><!-- #app -->
+
+<!-- FAV BAR -->
+<div id="fav-bar"></div>
+
+<script>
+// ─── DATA ────────────────────────────────────────────────────────────────────
+var PAGES = [
+  {id:'kalender', icon:'📋', label:'Kalender'},
+  {id:'vergelijk',icon:'⚖️', label:'Vergelijk'},
+  {id:'export',   icon:'📥', label:'Export'},
+  {id:'push',     icon:'🔔', label:'Alerts'},
+  {id:'print',    icon:'🖨️', label:'Afdrukken'},
+];
+
+var FAV_DEFAULT = ['kalender','vergelijk','export'];
+var favs = JSON.parse(localStorage.getItem('sv_favs')||JSON.stringify(FAV_DEFAULT));
+var currentPage = 'kalender';
+var huidigGem = 'vl';
+var vglGem1 = 'vl', vglGem2 = 'fr';
+var exportGem = 'vl';
+var pushGem = 'vl', pushTiming = 1;
+var printGem = 'vl';
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+function addD(d,n){var r=new Date(d);r.setDate(r.getDate()+n);return r;}
+function d0(d){var r=new Date(d);r.setHours(0,0,0,0);return r;}
+function vorigeMa(d){var r=new Date(d),dow=r.getDay(),diff=dow===0?6:dow-1;r.setDate(r.getDate()-diff);return r;}
+function eersteMaVanaf(d){var r=new Date(d);while(r.getDay()!==1)r.setDate(r.getDate()+1);return r;}
+function kortD(d){return d.toLocaleDateString('nl-BE',{day:'numeric',month:'short'});}
+function vollD(d){return d.toLocaleDateString('nl-BE',{weekday:'short',day:'numeric',month:'long',year:'numeric'}).toUpperCase();}
+function dagsDiff(a,b){return Math.round((d0(b)-d0(a))/86400000);}
+function icsDate(d){var y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),dd=String(d.getDate()).padStart(2,'0');return y+m+dd;}
+
+// ─── PAAS ────────────────────────────────────────────────────────────────────
+function paasDatum(jaar){
+  var a=jaar%19,b=Math.floor(jaar/100),c=jaar%100,dd=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25);
+  var g=Math.floor((b-f+1)/3),h=(19*a+b-dd-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7;
+  var m=Math.floor((a+11*h+22*l)/451),mnd=Math.floor((h+l-7*m+114)/31),dag=((h+l-7*m+114)%31)+1;
+  return new Date(jaar,mnd-1,dag);
+}
+
+// ─── VAKANTIES ───────────────────────────────────────────────────────────────
+function eersteSchooldagSep(j){var d=new Date(j,8,1);while(d.getDay()!==1)d.setDate(d.getDate()+1);return d;}
+function herfstStartVL(j){
+  var d=new Date(j,10,1),dow=d.getDay(),diff=dow===0?6:dow-1;
+  var ma=new Date(j,10,1-diff);
+  if(ma.getMonth()===9) ma=addD(ma,7);
+  return ma;
+}
+function kerstvakantie(j){var van=vorigeMa(new Date(j,11,25));return{naam:'Kerstvakantie',frNaam:'Vacances de Noël',icon:'⛄',van:van,tot:addD(van,13)};}
+
+function berekenVL(j){
+  var paas=paasDatum(j+1),basis=eersteSchooldagSep(j),hoger=addD(basis,21);
+  var herfst=herfstStartVL(j),krokus=addD(paas,-48),paasStart=addD(paas,1);
+  return[
+    {naam:'Eerste schooldag basis',icon:'🏫',van:basis,tot:basis,type:'schooldag'},
+    {naam:'Eerste schooldag hoger',icon:'🎓',van:hoger,tot:hoger,type:'schooldag'},
+    {naam:'Herfstvakantie',icon:'🍂',van:herfst,tot:addD(herfst,6)},
+    kerstvakantie(j),
+    {naam:'Krokusvakantie',icon:'🎭',van:krokus,tot:addD(krokus,6)},
+    {naam:'Paasvakantie',icon:'🌷',van:paasStart,tot:addD(paasStart,13)},
+    {naam:'Zomervakantie',icon:'☀️',van:new Date(j+1,6,1),tot:new Date(j+1,7,31)},
+  ];
+}
+function berekenFR(j){
+  var paas=paasDatum(j+1);
+  var aug31=new Date(j,7,31),startFR=vorigeMa(aug31);
+  if(d0(startFR)<d0(new Date(j,7,25))) startFR=addD(startFR,7);
+  var herfstFR=addD(herfstStartVL(j),-7);
+  var kroFR=addD(paas,-48);
+  var lenteStart=addD(paas,22);
+  var zomerFR=eersteMaVanaf(new Date(j+1,6,4));
+  return[
+    {naam:'Eerste schooldag',frNaam:'Rentrée scolaire',icon:'🏫',van:startFR,tot:startFR,type:'schooldag'},
+    {naam:'Herfstvakantie',frNaam:"Congé d'automne",icon:'🍂',van:herfstFR,tot:addD(herfstFR,13)},
+    kerstvakantie(j),
+    {naam:'Krokusvakantie',frNaam:'Congé de détente',icon:'🎭',van:kroFR,tot:addD(kroFR,13)},
+    {naam:'Lentevakantie',frNaam:'Vacances de printemps',icon:'🌷',van:lenteStart,tot:addD(lenteStart,13)},
+    {naam:'Zomervakantie',frNaam:"Vacances d'été",icon:'☀️',van:zomerFR,tot:addD(zomerFR,48)},
+  ];
+}
+function berekenGem(gem,j){return gem==='fr'?berekenFR(j):berekenVL(j);}
+
+// ─── FEESTDAGEN ──────────────────────────────────────────────────────────────
+function feestdagen(jaar){
+  var p=paasDatum(jaar);
+  return[
+    {naam:'Nieuwjaar',datum:new Date(jaar,0,1)},
+    {naam:'Paasmaandag',datum:addD(p,1)},
+    {naam:'Dag van de Arbeid',datum:new Date(jaar,4,1)},
+    {naam:'O.H. Hemelvaart',datum:addD(p,39)},
+    {naam:'Pinkstermaandag',datum:addD(p,50)},
+    {naam:'Nationale feestdag',datum:new Date(jaar,6,21)},
+    {naam:'O.L.V. Hemelvaart',datum:new Date(jaar,7,15)},
+    {naam:'Allerheiligen',datum:new Date(jaar,10,1)},
+    {naam:'Wapenstilstand',datum:new Date(jaar,10,11)},
+    {naam:'Kerstmis',datum:new Date(jaar,11,25)},
+  ];
+}
+function gemeenschapsfeestdag(gem,jaar){
+  if(gem==='vl') return{naam:'Vlaamse feestdag',subNaam:'Guldensporenslag 1302',datum:new Date(jaar,6,11)};
+  if(gem==='fr') return{naam:'Fête de la Communauté fr.',subNaam:'Feest Franstalige Gem.',datum:new Date(jaar,8,27)};
+  if(gem==='du') return{naam:'Tag der Deutschspr. Gem.',subNaam:'Dag Duitstalige Gem.',datum:new Date(jaar,10,15)};
+}
+function inVak(datum,lijst){
+  var t=d0(datum).getTime();
+  return lijst.some(function(v){
+    if(v.type==='schooldag') return false;
+    return t>=d0(v.van).getTime()&&t<=d0(v.tot).getTime();
+  });
+}
+function berekenFeesten(j,vak,gem){
+  var eerste=vak.find(function(v){return v.type==='schooldag';});
+  var laatste=vak[vak.length-1];
+  var res=[];
+  [j,j+1].forEach(function(jaar){
+    var gfd=gemeenschapsfeestdag(gem,jaar);
+    var gd=d0(gfd.datum),gdow=gd.getDay();
+    if((!eerste||gd>=d0(eerste.van))&&gd<=d0(laatste.tot)&&gdow!==0&&gdow!==6&&!inVak(gfd.datum,vak))
+      res.push({naam:gfd.naam,subNaam:gfd.subNaam,datum:gfd.datum,gem:true});
+    feestdagen(jaar).forEach(function(f){
+      var fd=d0(f.datum);
+      if(eerste&&fd<d0(eerste.van)) return;
+      if(fd>d0(laatste.tot)) return;
+      var dow=fd.getDay();
+      if(dow===0||dow===6) return;
+      if(inVak(f.datum,vak)) return;
+      res.push({naam:f.naam,datum:f.datum,gem:false});
+    });
+  });
+  return res.sort(function(a,b){return a.datum-b.datum;});
+}
+
+// ─── COUNTDOWN ───────────────────────────────────────────────────────────────
+function updateCountdown(){
+  var j=parseInt(document.getElementById('jaar-select').value);
+  var vak=berekenGem(huidigGem,j);
+  var vandaag=d0(new Date());
+  var bar=document.getElementById('countdown-bar');
+  var info=null;
+  for(var i=0;i<vak.length;i++){
+    var v=vak[i];
+    if(v.type==='schooldag') continue;
+    if(vandaag>=d0(v.van)&&vandaag<=d0(v.tot)){info={v:v,actief:true,dagen:dagsDiff(vandaag,addD(v.tot,1))};break;}
+    if(d0(v.van)>vandaag){info={v:v,actief:false,dagen:dagsDiff(vandaag,v.van)};break;}
+  }
+  if(!info){bar.style.display='none';return;}
+  bar.style.display='block';
+  if(info.actief){
+    bar.className='aktief-vak';
+    bar.textContent='▶ '+info.v.naam.toUpperCase()+' ACTIEF · NOG '+info.dagen+' DAG'+(info.dagen!==1?'EN':'');
+  } else if(info.dagen===0){
+    bar.className='aktief-vak';
+    bar.textContent='▶ '+info.v.naam.toUpperCase()+' BEGINT VANDAAG';
+  } else if(info.dagen===1){
+    bar.className='';
+    bar.textContent='⏱ MORGEN: '+info.v.naam.toUpperCase();
+  } else {
+    bar.className='';
+    bar.textContent='⏱ '+info.v.naam.toUpperCase()+' OVER '+info.dagen+' DAGEN · '+kortD(info.v.van).toUpperCase();
+  }
+}
+
+// ─── KALENDER RENDER ─────────────────────────────────────────────────────────
+function renderKalender(){
+  var j=parseInt(document.getElementById('jaar-select').value);
+  document.getElementById('hdr-paas').textContent='✝ '+kortD(paasDatum(j+1)).toUpperCase();
+  var vak=berekenGem(huidigGem,j);
+  var feesten=berekenFeesten(j,vak,huidigGem);
+  var vandaag=d0(new Date());
+  var hIdx=-1,vIdx=-1;
+  vak.forEach(function(v,i){if(hIdx!==-1)return;if(vandaag>=d0(v.van)&&vandaag<=d0(v.tot))hIdx=i;});
+  if(hIdx===-1){for(var i=0;i<vak.length;i++){if(d0(vak[i].van)>vandaag){vIdx=i;break;}}}
+  var fvIdx=-1;
+  for(var k=0;k<feesten.length;k++){if(d0(feesten[k].datum)>vandaag){fvIdx=k;break;}}
+  var isFR=huidigGem==='fr';
+  var html='';
+  if(isFR) html+='<p class="nota">ℹ️ Hervormd 2022: herfst+krokus = 2 wk · lentevakantie in mei · kortere zomer</p>';
+  html+='<div class="sectie-titel">Schoolvakanties</div><div class="kaart">';
+  vak.forEach(function(v,i){
+    var isH=i===hIdx,isV=i===vIdx;
+    var isSd=v.type==='schooldag'&&d0(v.van).getTime()===vandaag.getTime();
+    var isPast=d0(v.tot)<vandaag;
+    var cls=isH?'huidig':isV?'volgend':isSd?'speciaal':isPast?'voorbij':'';
+    var badge=isH?'<span class="badge b-now">▶ ACTIEF</span>':isV?'<span class="badge b-next">▷ VOLGEND</span>':'';
+    var duur=v.type!=='schooldag'?Math.round((d0(v.tot)-d0(v.van))/86400000)+1+'d':'';
+    var datumTxt=v.type==='schooldag'?vollD(v.van):kortD(v.van).toUpperCase()+' › '+kortD(v.tot).toUpperCase();
+    var frSpan=isFR&&v.frNaam?'<span class="rij-fr">'+v.frNaam+'</span>':'';
+    html+='<div class="rij '+cls+'"><div class="rij-icon">'+(v.icon||'📅')+'</div>';
+    html+='<div class="rij-body"><div class="rij-naam">'+v.naam+frSpan+badge+'</div>';
+    html+='<div class="rij-datum">'+datumTxt+'</div></div>';
+    if(duur) html+='<div class="rij-duur">'+duur+'</div>';
+    html+='</div>';
+  });
+  html+='</div>';
+  html+='<div class="sectie-titel">Vrije feestdagen</div><div class="kaart">';
+  if(!feesten.length){
+    html+='<p class="leeg">— alle feestdagen vallen in een vakantie of weekend —</p>';
+  } else {
+    feesten.forEach(function(f,i){
+      var isNu=d0(f.datum).getTime()===vandaag.getTime();
+      var isVol=i===fvIdx;
+      var isPast=d0(f.datum)<vandaag;
+      var cls=isNu?'speciaal':isVol?'volgend':isPast?'voorbij':'';
+      var badge=isNu?'<span class="badge b-info">▶ VANDAAG</span>':isVol?'<span class="badge b-next">▷ VOLGEND</span>':'';
+      var gemBadge=f.gem?'<span class="badge b-gem">GEM.</span>':'';
+      var subTxt=f.subNaam?' <span style="color:#333;font-size:0.52rem">// '+f.subNaam+'</span>':'';
+      html+='<div class="rij '+cls+'"><div class="rij-icon">'+(f.gem?'🏛️':'📅')+'</div>';
+      html+='<div class="rij-body"><div class="rij-naam">'+f.naam+gemBadge+badge+'</div>';
+      html+='<div class="rij-datum">'+vollD(f.datum)+subTxt+'</div></div></div>';
+    });
+  }
+  html+='</div>';
+  document.getElementById('kal-inhoud').innerHTML=html;
+  updateCountdown();
+}
+
+// ─── VERGELIJK RENDER ────────────────────────────────────────────────────────
+var GEM_LABELS={vl:'🟡 Vlaanderen',fr:'🔴 Franstalig',du:'🔵 Duitstalig'};
+
+function buildVglSelect(selId, selected, exclude){
+  var sel=document.getElementById(selId);
+  sel.innerHTML='';
+  ['vl','fr','du'].forEach(function(g){
+    if(g===exclude) return;
+    var opt=document.createElement('option');
+    opt.value=g; opt.textContent=GEM_LABELS[g];
+    if(g===selected) opt.selected=true;
+    sel.appendChild(opt);
+  });
+}
+
+function renderVergelijk(){
+  var j=parseInt(document.getElementById('jaar-select').value);
+  buildVglSelect('vgl-sel-1', vglGem1, vglGem2);
+  buildVglSelect('vgl-sel-2', vglGem2, vglGem1);
+  var vak1=berekenGem(vglGem1,j), vak2=berekenGem(vglGem2,j);
+  var namen1={}, namen2={};
+  vak1.forEach(function(v){if(v.type!=='schooldag')namen1[v.naam]=v;});
+  vak2.forEach(function(v){if(v.type!=='schooldag')namen2[v.naam]=v;});
+  var alle=Object.keys(namen1);
+  Object.keys(namen2).forEach(function(n){if(alle.indexOf(n)<0)alle.push(n);});
+  var html='';
+  html+='<div class="vgl-header">';
+  html+='<div class="vgl-col-tit" style="color:var(--gold);border-color:#333;">'+GEM_LABELS[vglGem1]+'</div>';
+  html+='<div class="vgl-col-tit" style="color:var(--red);border-color:#333;border-left:none;">'+GEM_LABELS[vglGem2]+'</div>';
+  html+='</div>';
+  alle.forEach(function(naam){
+    var v1=namen1[naam],v2=namen2[naam];
+    var overlap=false;
+    if(v1&&v2){
+      var s1=d0(v1.van).getTime(),e1=d0(v1.tot).getTime();
+      var s2=d0(v2.van).getTime(),e2=d0(v2.tot).getTime();
+      overlap=s1<=e2&&s2<=e1;
+    }
+    html+='<div class="vgl-rij">';
+    html+='<div class="vgl-cel'+(v1?(overlap?' overlap':' alleen'):'')+'\">';
+    if(v1){
+      html+='<div class="vgl-cel-naam">'+v1.naam+'</div>';
+      html+='<div class="vgl-cel-datum">'+kortD(v1.van).toUpperCase()+' › '+kortD(v1.tot).toUpperCase()+'</div>';
+      var d1=Math.round((d0(v1.tot)-d0(v1.van))/86400000)+1;
+      html+='<div class="vgl-cel-datum" style="color:#333;margin-top:2px;">'+d1+'d</div>';
+    } else {
+      html+='<div class="vgl-cel-naam" style="color:#333;">—</div>';
+    }
+    html+='</div>';
+    html+='<div class="vgl-cel'+(v2?(overlap?' overlap':' alleen'):'')+'\">';
+    if(v2){
+      html+='<div class="vgl-cel-naam">'+v2.naam+'</div>';
+      html+='<div class="vgl-cel-datum">'+kortD(v2.van).toUpperCase()+' › '+kortD(v2.tot).toUpperCase()+'</div>';
+      var d2=Math.round((d0(v2.tot)-d0(v2.van))/86400000)+1;
+      html+='<div class="vgl-cel-datum" style="color:#333;margin-top:2px;">'+d2+'d</div>';
+    } else {
+      html+='<div class="vgl-cel-naam" style="color:#333;">—</div>';
+    }
+    html+='</div></div>';
+  });
+  html+='<div class="sectie-titel">Legenda</div>';
+  html+='<div class="kaart"><div class="rij" style="border:none;">';
+  html+='<div class="rij-body">';
+  html+='<div class="rij-datum" style="color:var(--green)">■ Groen = samen vrij (overlap)</div>';
+  html+='<div class="rij-datum" style="color:var(--gold);margin-top:4px">■ Geel = enkel deze gemeenschap</div>';
+  html+='</div></div></div>';
+  document.getElementById('vgl-inhoud').innerHTML=html;
+}
+
+// ─── ICS EXPORT ──────────────────────────────────────────────────────────────
+function maakICS(gem,j){
+  var vak=berekenGem(gem,j);
+  var naam={'vl':'Vlaanderen','fr':'Franstalig','du':'Duitstalig'}[gem];
+  var lines=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Schoolvakanties BE//NL','CALSCALE:GREGORIAN',
+    'X-WR-CALNAME:Schoolvakanties '+naam+' '+j+'-'+(j+1),'X-WR-TIMEZONE:Europe/Brussels'];
+  vak.forEach(function(v){
+    if(v.type==='schooldag') return;
+    lines.push('BEGIN:VEVENT');
+    lines.push('UID:'+v.naam.replace(/\s/g,'-').toLowerCase()+'-'+j+'@schoolvak.be');
+    lines.push('DTSTART;VALUE=DATE:'+icsDate(v.van));
+    lines.push('DTEND;VALUE=DATE:'+icsDate(addD(v.tot,1)));
+    lines.push('SUMMARY:'+v.naam+' ('+naam+')');
+    lines.push('END:VEVENT');
+  });
+  berekenFeesten(j,vak,gem).forEach(function(f){
+    lines.push('BEGIN:VEVENT');
+    lines.push('UID:feest-'+f.naam.replace(/\s/g,'-').toLowerCase()+'-'+f.datum.getFullYear()+'@schoolvak.be');
+    lines.push('DTSTART;VALUE=DATE:'+icsDate(f.datum));
+    lines.push('DTEND;VALUE=DATE:'+icsDate(addD(f.datum,1)));
+    lines.push('SUMMARY:'+f.naam+(f.gem?' (gem.)':''));
+    lines.push('END:VEVENT');
+  });
+  lines.push('END:VCALENDAR');
+  return lines.join('\r\n');
+}
+function downloadICS(gem){
+  var j=parseInt(document.getElementById('jaar-select').value);
+  var blob=new Blob([maakICS(gem,j)],{type:'text/calendar;charset=utf-8'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url; a.download='schoolvakanties-'+gem+'-'+j+'-'+(j+1)+'.ics';
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+function renderExport(){
+  var j=parseInt(document.getElementById('jaar-select').value);
+  var gemBtns='';
+  ['vl','fr','du'].forEach(function(g){
+    gemBtns+='<button class="exp-gem-btn'+(exportGem===g?' actief':'')+'" onclick="exportGem=\''+g+'\';renderExport()">'+GEM_LABELS[g]+'</button>';
+  });
+  var html='';
+  html+='<div class="exp-card">';
+  html+='<div class="exp-title">📥 ICS Kalender export</div>';
+  html+='<div class="exp-desc">Download een .ics bestand met alle schoolvakanties en feestdagen. Importeer in Google Calendar, Apple Calendar of Outlook.</div>';
+  html+='</div>';
+  html+='<div class="sectie-titel">Gemeenschap</div>';
+  html+='<div class="exp-gem-grid">'+gemBtns+'</div>';
+  html+='<button class="exp-btn" onclick="downloadICS(exportGem)">⬇ DOWNLOAD '+GEM_LABELS[exportGem].toUpperCase()+' '+j+'–'+(j+1)+'.ICS</button>';
+  html+='<button class="exp-btn" onclick="[\'vl\',\'fr\',\'du\'].forEach(function(g){downloadICS(g)})">⬇ DOWNLOAD ALLE 3 GEMEENSCHAPPEN</button>';
+  html+='<div class="sectie-titel">Instructies</div>';
+  html+='<div class="kaart">';
+  html+='<div class="rij" style="border-bottom:1px solid #111;"><div class="rij-body"><div class="rij-naam" style="color:var(--gold)">Google Calendar</div><div class="rij-datum">Instellingen → Andere agenda\'s → Importeren</div></div></div>';
+  html+='<div class="rij" style="border-bottom:1px solid #111;"><div class="rij-body"><div class="rij-naam" style="color:var(--blue)">Apple Calendar</div><div class="rij-datum">Bestand → Importeer → selecteer .ics</div></div></div>';
+  html+='<div class="rij" style="border:none;"><div class="rij-body"><div class="rij-naam" style="color:var(--muted)">Outlook</div><div class="rij-datum">Bestand → Openen → Agenda importeren</div></div></div>';
+  html+='</div>';
+  document.getElementById('exp-inhoud').innerHTML=html;
+}
+
+// ─── PUSH ────────────────────────────────────────────────────────────────────
+function renderPush(){
+  var j=parseInt(document.getElementById('jaar-select').value);
+  var perm=window.Notification?Notification.permission:'unsupported';
+  var statusHtml='';
+  if(perm==='unsupported') statusHtml='<div class="push-status error">✗ Niet ondersteund in deze browser</div>';
+  else if(perm==='granted') statusHtml='<div class="push-status ok">✓ Notificaties ingeschakeld</div>';
+  else if(perm==='denied')  statusHtml='<div class="push-status error">✗ Geblokkeerd — wijzig in browserinstellingen</div>';
+  else statusHtml='<div class="push-status pending">● Toestemming nog niet gevraagd</div>';
+  var gemBtns='';
+  ['vl','fr','du'].forEach(function(g){
+    gemBtns+='<button class="exp-gem-btn'+(pushGem===g?' actief':'')+'" onclick="pushGem=\''+g+'\';renderPush()">'+GEM_LABELS[g]+'</button>';
+  });
+  var timingBtns='';
+  [0,1,2,3].forEach(function(n){
+    timingBtns+='<button class="seg-btn'+(pushTiming===n?' actief':'')+'" onclick="pushTiming='+n+';renderPush()">'+(n===0?'Dag zelf':n+'d voor')+'</button>';
+  });
+  var html='';
+  html+='<div class="push-card">';
+  html+='<div class="push-title">🔔 Push notificaties</div>';
+  html+='<div class="push-desc">Ontvang een melding voor elke schoolvakantie. Werkt via de browser (vereist toestemming).</div>';
+  html+=statusHtml;
+  html+='</div>';
+  html+='<div class="sectie-titel">Gemeenschap</div>';
+  html+='<div class="exp-gem-grid">'+gemBtns+'</div>';
+  html+='<div class="sectie-titel">Timing</div>';
+  html+='<div class="setting-row"><div><div class="setting-label">Waarschuwing</div><div class="setting-desc">Hoeveel dagen op voorhand</div></div>';
+  html+='<div class="seg-ctrl">'+timingBtns+'</div></div>';
+  if(perm!=='denied'){
+    html+='<button class="push-btn" onclick="vraagPush()" style="margin-top:8px;">▶ NOTIFICATIES INSCHAKELEN</button>';
+  }
+  html+='<button class="push-btn" onclick="testNotif()" style="margin-top:4px;">⚡ TEST NOTIFICATIE</button>';
+  html+='<div class="nota" style="margin-top:8px;">ℹ️ Browser-push werkt alleen als de pagina open staat. Voor achtergrond-notificaties: installeer als app via "Delen → Zet op beginscherm".</div>';
+  document.getElementById('push-inhoud').innerHTML=html;
+}
+function vraagPush(){
+  if(!window.Notification) return;
+  Notification.requestPermission().then(function(){
+    renderPush();
+    if(Notification.permission==='granted') planNotifs();
+  });
+}
+function planNotifs(){
+  var j=parseInt(document.getElementById('jaar-select').value);
+  var vak=berekenGem(pushGem,j);
+  var vandaag=d0(new Date());
+  var gepland=0;
+  vak.forEach(function(v){
+    if(v.type==='schooldag') return;
+    var meldDatum=addD(v.van,-pushTiming);
+    if(d0(meldDatum)>=vandaag){
+      var ms=d0(meldDatum).getTime()-vandaag.getTime();
+      setTimeout((function(naam,datum){
+        return function(){
+          if(Notification.permission==='granted'){
+            new Notification('Schoolvakantie 📅',{body:(pushTiming===0?naam+' begint vandaag!':'Morgen begint: '+naam+' ('+kortD(datum)+')')});
+          }
+        };
+      })(v.naam,v.van),ms);
+      gepland++;
+    }
+  });
+  if(gepland&&Notification.permission==='granted'){
+    new Notification('Schoolvakanties ✓',{body:gepland+' meldingen ingepland voor '+j+'–'+(j+1)+'.'});
+  }
+}
+function testNotif(){
+  if(!window.Notification){alert('Push niet ondersteund.');return;}
+  if(Notification.permission!=='granted'){vraagPush();return;}
+  new Notification('Test 📅',{body:'Morgen begint de Krokusvakantie! (test)'});
+}
+
+// ─── NAVIGATIE ───────────────────────────────────────────────────────────────
+function getFavs(){
+  var f=favs.filter(function(id){return id!=='kalender'}).slice(0,3);
+  return ['kalender'].concat(f);
+}
+
+function showPage(id){
+  // Views verbergen
+  document.querySelectorAll('.view').forEach(function(v){v.classList.remove('active');});
+  var launcher=document.getElementById('view-launcher');
+  launcher.classList.remove('active');
+  if(id==='launcher'){
+    launcher.classList.add('active');
+  } else {
+    var el=document.getElementById('view-'+id);
+    if(el) el.classList.add('active');
+  }
+  currentPage=id;
+  rebuildFavBar();
+  if(id==='kalender') renderKalender();
+  if(id==='vergelijk') renderVergelijk();
+  if(id==='export') renderExport();
+  if(id==='push') renderPush();
+  if(id==='print') renderPrintView();
+}
+
+function rebuildFavBar(){
+  var bar=document.getElementById('fav-bar');
+  var f=getFavs();
+  bar.style.gridTemplateColumns='repeat('+(f.length+1)+',1fr)';
+  bar.innerHTML='';
+  f.forEach(function(id){
+    var pg=PAGES.find(function(p){return p.id===id;});
+    if(!pg) return;
+    var div=document.createElement('div');
+    div.className='fav-item'+(currentPage===id?' active':'');
+    div.innerHTML='<div class="fav-icon">'+pg.icon+'</div><div>'+pg.label+'</div>';
+    div.onclick=function(){showPage(id);};
+    bar.appendChild(div);
+  });
+  var launcher=document.createElement('div');
+  launcher.className='fav-item fav-launcher'+(currentPage==='launcher'?' active':'');
+  launcher.innerHTML='<div class="fav-icon">⊞</div><div>Menu</div>';
+  launcher.onclick=function(){showPage('launcher');};
+  bar.appendChild(launcher);
+}
+
+function rebuildLauncher(){
+  var grid=document.getElementById('launcher-grid');
+  grid.innerHTML='';
+  var f=getFavs();
+  PAGES.forEach(function(pg){
+    var isFav=f.indexOf(pg.id)>=0;
+    var tile=document.createElement('div');
+    tile.className='launcher-tile'+(isFav?' fav-marked':'');
+    tile.innerHTML='<div class="launcher-icon">'+pg.icon+'</div><div class="launcher-label">'+pg.label+'</div><div class="launcher-fav-dot"></div>';
+    tile.onclick=function(){showPage(pg.id);};
+    var pressTimer;
+    tile.addEventListener('touchstart',function(){pressTimer=setTimeout(function(){toggleFav(pg.id,tile);},600);});
+    tile.addEventListener('touchend',function(){clearTimeout(pressTimer);});
+    tile.addEventListener('touchmove',function(){clearTimeout(pressTimer);});
+    grid.appendChild(tile);
+  });
+}
+
+function toggleFav(id){
+  if(id==='kalender') return;
+  var idx=favs.indexOf(id);
+  if(idx>=0){
+    favs.splice(idx,1);
+  } else {
+    var cur=favs.filter(function(f){return f!=='kalender';});
+    if(cur.length>=3) return;
+    favs.push(id);
+  }
+  localStorage.setItem('sv_favs',JSON.stringify(favs));
+  rebuildFavBar();
+  rebuildLauncher();
+}
+
+// ─── GEM TABS ────────────────────────────────────────────────────────────────
+document.querySelectorAll('#gem-tabs .gem-tab').forEach(function(tab){
+  tab.addEventListener('click',function(){
+    document.querySelectorAll('#gem-tabs .gem-tab').forEach(function(t){t.classList.remove('actief');});
+    tab.classList.add('actief');
+    huidigGem=tab.dataset.gem;
+    renderKalender();
+  });
+});
+
+// ─── JAAR SELECT ─────────────────────────────────────────────────────────────
+var sel=document.getElementById('jaar-select');
+var nu=new Date();
+var startJ=nu.getMonth()>=8?nu.getFullYear():nu.getFullYear()-1;
+for(var y=startJ-2;y<=startJ+3;y++){
+  var opt=document.createElement('option');
+  opt.value=y; opt.textContent=y+'–'+(y+1);
+  if(y===startJ) opt.selected=true;
+  sel.appendChild(opt);
+}
+sel.addEventListener('change',function(){
+  renderKalender();
+  if(currentPage==='vergelijk') renderVergelijk();
+  if(currentPage==='export') renderExport();
+  if(currentPage==='push') renderPush();
+  if(currentPage==='print') renderPrintView();
+});
+
+// ─── PRINT ───────────────────────────────────────────────────────────────────
+function vollDPrint(d){
+  return d.toLocaleDateString('nl-BE',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+}
+function kortDPrint(d){
+  return d.toLocaleDateString('nl-BE',{day:'numeric',month:'long',year:'numeric'});
+}
+
+function renderPrintView(){
+  var j=parseInt(document.getElementById('jaar-select').value);
+  var gemBtns='';
+  ['vl','fr','du'].forEach(function(g){
+    gemBtns+='<button class="exp-gem-btn'+(printGem===g?' actief':'')+'" onclick="printGem=\''+g+'\';renderPrintView()">'+GEM_LABELS[g]+'</button>';
+  });
+  var html='';
+  html+='<div class="exp-card">';
+  html+='<div class="exp-title">🖨️ Afdrukken / PDF opslaan</div>';
+  html+='<div class="exp-desc">Kies een gemeenschap en klik op "Afdrukken". De browser opent het afdrukvenster — kies "Opslaan als PDF" voor een digitaal document. Witte achtergrond, geen donkere kleuren — inkvriendelijk.</div>';
+  html+='</div>';
+  html+='<div class="sectie-titel">Gemeenschap</div>';
+  html+='<div class="exp-gem-grid">'+gemBtns+'</div>';
+  html+='<button class="exp-btn" onclick="doPrint()">🖨️ AFDRUKKEN / OPSLAAN ALS PDF</button>';
+  html+='<div class="sectie-titel">Voorbeeld</div>';
+
+  // Voorvertoning
+  var vak=berekenGem(printGem,j);
+  var feesten=berekenFeesten(j,vak,printGem);
+  var gemNaam={'vl':'Vlaanderen','fr':'Franstalig (Wallonië/Brussel)','du':'Duitstalig'}[printGem];
+  var paas=paasDatum(j+1);
+
+  html+='<div style="background:#fff;color:#111;padding:12px;border:1px solid #ccc;font-family:Calibri,Trebuchet MS,Segoe UI,Georgia,serif;font-size:0.62rem;">';
+  html+='<div style="font-size:0.75rem;font-weight:bold;color:#111;border-bottom:2px solid #222;padding-bottom:6px;margin-bottom:10px;">Schoolvakanties België '+j+'–'+(j+1)+' &nbsp;·&nbsp; '+gemNaam+'</div>';
+
+  // Vakanties tabel
+  html+='<div style="font-size:0.6rem;font-weight:bold;color:#333;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Schoolvakanties</div>';
+  html+='<table style="width:100%;border-collapse:collapse;margin-bottom:10px;">';
+  html+='<thead><tr style="background:#f0f0f0;">';
+  html+='<th style="text-align:left;padding:5px 7px;border:1px solid #ccc;font-size:0.58rem;">Periode</th>';
+  html+='<th style="text-align:left;padding:5px 7px;border:1px solid #ccc;font-size:0.58rem;">Van</th>';
+  html+='<th style="text-align:left;padding:5px 7px;border:1px solid #ccc;font-size:0.58rem;">Tot</th>';
+  html+='<th style="text-align:center;padding:5px 7px;border:1px solid #ccc;font-size:0.58rem;">Dagen</th>';
+  html+='</tr></thead><tbody>';
+  vak.forEach(function(v){
+    var isDagen=v.type!=='schooldag';
+    var dagen=isDagen?Math.round((d0(v.tot)-d0(v.van))/86400000)+1:'—';
+    var isFR=printGem==='fr';
+    var naam=v.naam+(isFR&&v.frNaam?' / '+v.frNaam:'');
+    html+='<tr>';
+    html+='<td style="padding:5px 7px;border:1px solid #ddd;font-weight:bold;">'+(v.icon||'')+'&nbsp;'+naam+'</td>';
+    html+='<td style="padding:5px 7px;border:1px solid #ddd;">'+kortDPrint(v.van)+'</td>';
+    html+='<td style="padding:5px 7px;border:1px solid #ddd;">'+(isDagen?kortDPrint(v.tot):'—')+'</td>';
+    html+='<td style="padding:5px 7px;border:1px solid #ddd;text-align:center;">'+dagen+'</td>';
+    html+='</tr>';
+  });
+  html+='</tbody></table>';
+
+  // Feestdagen tabel
+  if(feesten.length){
+    html+='<div style="font-size:0.6rem;font-weight:bold;color:#333;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Vrije feestdagen (buiten schoolvakanties)</div>';
+    html+='<table style="width:100%;border-collapse:collapse;margin-bottom:10px;">';
+    html+='<thead><tr style="background:#f0f0f0;">';
+    html+='<th style="text-align:left;padding:5px 7px;border:1px solid #ccc;font-size:0.58rem;">Feestdag</th>';
+    html+='<th style="text-align:left;padding:5px 7px;border:1px solid #ccc;font-size:0.58rem;">Datum</th>';
+    html+='<th style="text-align:left;padding:5px 7px;border:1px solid #ccc;font-size:0.58rem;">Dag</th>';
+    html+='</tr></thead><tbody>';
+    feesten.forEach(function(f){
+      html+='<tr>';
+      html+='<td style="padding:5px 7px;border:1px solid #ddd;">'+(f.gem?'🏛️ ':'📅 ')+f.naam+(f.gem?' <span style="font-size:0.52rem;color:#888;">(gemeenschap)</span>':'')+'</td>';
+      html+='<td style="padding:5px 7px;border:1px solid #ddd;">'+kortDPrint(f.datum)+'</td>';
+      html+='<td style="padding:5px 7px;border:1px solid #ddd;">'+f.datum.toLocaleDateString('nl-BE',{weekday:'long'})+'</td>';
+      html+='</tr>';
+    });
+    html+='</tbody></table>';
+  }
+
+  html+='<div style="font-size:0.52rem;color:#888;border-top:1px solid #ddd;padding-top:6px;margin-top:4px;">Pasen '+(j+1)+': '+kortDPrint(paas)+' &nbsp;·&nbsp; Gegenereerd op '+new Date().toLocaleDateString('nl-BE')+'</div>';
+  html+='</div>'; // einde voorvertoning
+
+  document.getElementById('print-inhoud').innerHTML=html;
+}
+
+function doPrint(){
+  var j=parseInt(document.getElementById('jaar-select').value);
+  var vak=berekenGem(printGem,j);
+  var feesten=berekenFeesten(j,vak,printGem);
+  var gemNaam={'vl':'Vlaanderen','fr':'Franstalig (Wallonië/Brussel)','du':'Duitstalig'}[printGem];
+  var paas=paasDatum(j+1);
+  var isFR=printGem==='fr';
+
+  var w=window.open('','_blank');
+  if(!w) return;
+
+  var rijen='';
+  vak.forEach(function(v){
+    var isDagen=v.type!=='schooldag';
+    var dagen=isDagen?Math.round((d0(v.tot)-d0(v.van))/86400000)+1:'—';
+    var naam=v.naam+(isFR&&v.frNaam?' / '+v.frNaam:'');
+    var bg=v.type==='schooldag'?'#f9f9f9':'#fff';
+    rijen+='<tr style="background:'+bg+'">';
+    rijen+='<td>'+(v.icon||'')+'&nbsp;<strong>'+naam+'</strong></td>';
+    rijen+='<td>'+kortDPrint(v.van)+'</td>';
+    rijen+='<td>'+(isDagen?kortDPrint(v.tot):'—')+'</td>';
+    rijen+='<td style="text-align:center">'+dagen+'</td>';
+    rijen+='</tr>';
+  });
+
+  var feestRijen='';
+  feesten.forEach(function(f){
+    feestRijen+='<tr>';
+    feestRijen+='<td>'+(f.gem?'🏛️ ':'')+'<strong>'+f.naam+'</strong>'+(f.gem?' <em style="color:#888;font-size:10px">(gemeenschap)</em>':'')+(f.subNaam?'<br><span style="color:#888;font-size:10px">'+f.subNaam+'</span>':'')+'</td>';
+    feestRijen+='<td>'+kortDPrint(f.datum)+'</td>';
+    feestRijen+='<td>'+f.datum.toLocaleDateString('nl-BE',{weekday:'long'})+'</td>';
+    feestRijen+='</tr>';
+  });
+
+  var html='<!DOCTYPE html><html lang="nl"><head>';
+  html+='<meta charset="UTF-8">';
+  html+='<title>Schoolvakanties '+j+'–'+(j+1)+' — '+gemNaam+'</title>';
+  html+='<style>';
+  html+='*{box-sizing:border-box;margin:0;padding:0;}';
+  html+='body{font-family:Calibri,"Trebuchet MS","Segoe UI",Georgia,serif;font-size:11pt;color:#111;background:#fff;padding:20mm 18mm;}';
+  html+='h1{font-size:16pt;font-weight:bold;color:#111;margin-bottom:3mm;border-bottom:2pt solid #111;padding-bottom:3mm;}';
+  html+='h2{font-size:10pt;font-weight:bold;color:#333;text-transform:uppercase;letter-spacing:1px;margin:6mm 0 3mm;}';
+  html+='table{width:100%;border-collapse:collapse;margin-bottom:6mm;}';
+  html+='th{background:#eee;text-align:left;padding:4pt 6pt;border:0.5pt solid #bbb;font-size:9pt;text-transform:uppercase;letter-spacing:0.5px;}';
+  html+='td{padding:4pt 6pt;border:0.5pt solid #ccc;font-size:10pt;vertical-align:top;}';
+  html+='tr:nth-child(even) td{background:#f9f9f9;}';
+  html+='.footer{font-size:8pt;color:#888;border-top:0.5pt solid #ccc;padding-top:4mm;margin-top:8mm;}';
+  html+='@media print{';
+  html+='  body{padding:10mm 12mm;}';
+  html+='  h1{font-size:14pt;}';
+  html+='  table{page-break-inside:auto;}';
+  html+='  tr{page-break-inside:avoid;}';
+  html+='}';
+  html+='</style></head><body>';
+  html+='<h1>Schoolvakanties België '+j+'–'+(j+1)+'<br><span style="font-size:11pt;font-weight:normal;color:#555;">'+gemNaam+'</span></h1>';
+
+  html+='<h2>Schoolvakanties</h2>';
+  html+='<table><thead><tr><th style="width:40%">Periode</th><th style="width:25%">Van</th><th style="width:25%">Tot</th><th style="width:10%;text-align:center">Dagen</th></tr></thead><tbody>'+rijen+'</tbody></table>';
+
+  if(feestRijen){
+    html+='<h2>Vrije feestdagen (buiten schoolvakanties)</h2>';
+    html+='<table><thead><tr><th style="width:40%">Feestdag</th><th style="width:35%">Datum</th><th style="width:25%">Dag</th></tr></thead><tbody>'+feestRijen+'</tbody></table>';
+  }
+
+  html+='<div class="footer">Pasen '+(j+1)+': '+kortDPrint(paas)+' &nbsp;·&nbsp; Gegenereerd op '+new Date().toLocaleDateString('nl-BE',{day:'numeric',month:'long',year:'numeric'})+'</div>';
+  html+='<script>window.onload=function(){window.print();}<\/script>';
+  html+='</body></html>';
+
+  w.document.write(html);
+  w.document.close();
+}
+
+// ─── BOOT ────────────────────────────────────────────────────────────────────
+rebuildFavBar();
+rebuildLauncher();
+showPage('kalender');
+
+// ─── SERVICE WORKER REGISTRATIE ───────────────────────────────────────────────
+var swRegistration = null;
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('./sw.js').then(function(reg) {
+      swRegistration = reg;
+      console.log('[SW] Geregistreerd:', reg.scope);
+      // Check voor updates
+      reg.addEventListener('updatefound', function() {
+        var newWorker = reg.installing;
+        newWorker.addEventListener('statechange', function() {
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            newWorker.postMessage({ type: 'SKIP_WAITING' });
+          }
+        });
+      });
+    }).catch(function(err) {
+      console.warn('[SW] Registratie mislukt:', err);
+    });
+  });
+}
+
+// ─── VERBETERDE PUSH VIA SW ───────────────────────────────────────────────────
+function vraagPush() {
+  if (!window.Notification) return;
+  Notification.requestPermission().then(function(result) {
+    renderPush();
+    if (result === 'granted') planNotifs();
+  });
+}
+
+function planNotifs() {
+  var j = parseInt(document.getElementById('jaar-select').value);
+  var vak = berekenGem(pushGem, j);
+  var vandaag = d0(new Date());
+  var gepland = 0;
+
+  vak.forEach(function(v) {
+    if (v.type === 'schooldag') return;
+    var meldDatum = addD(v.van, -pushTiming);
+    if (d0(meldDatum) >= vandaag) {
+      var ms = d0(meldDatum).getTime() - vandaag.getTime();
+      setTimeout((function(naam, datum) {
+        return function() {
+          if (Notification.permission !== 'granted') return;
+          // Probeer via SW voor betere achtergrond support
+          var title = 'Schoolvakantie 📅';
+          var body = pushTiming === 0
+            ? naam + ' begint vandaag!'
+            : 'Morgen begint: ' + naam + ' (' + kortD(datum) + ')';
+          if (swRegistration && swRegistration.showNotification) {
+            swRegistration.showNotification(title, {
+              body: body,
+              icon: './icon-192.png',
+              badge: './favicon-32.png',
+              tag: 'schoolvak-' + naam,
+              vibrate: [200, 100, 200],
+              data: { url: './index.html' }
+            });
+          } else {
+            new Notification(title, { body: body, icon: './icon-192.png' });
+          }
+        };
+      })(v.naam, v.van), ms);
+      gepland++;
+    }
+  });
+
+  if (gepland > 0 && Notification.permission === 'granted') {
+    var bevestig = gepland + ' meldingen ingepland voor schooljaar ' + j + '–' + (j+1) + '.';
+    if (swRegistration && swRegistration.showNotification) {
+      swRegistration.showNotification('Schoolvakanties ✓', {
+        body: bevestig, icon: './icon-192.png', badge: './favicon-32.png'
+      });
+    } else {
+      new Notification('Schoolvakanties ✓', { body: bevestig });
+    }
+  }
+}
+
+function testNotif() {
+  if (!window.Notification) { alert('Push niet ondersteund.'); return; }
+  if (Notification.permission !== 'granted') { vraagPush(); return; }
+  var body = 'Morgen begint de Krokusvakantie! (test)';
+  if (swRegistration && swRegistration.showNotification) {
+    swRegistration.showNotification('Test notificatie 📅', {
+      body: body, icon: './icon-192.png', badge: './favicon-32.png',
+      vibrate: [200, 100, 200]
+    });
+  } else {
+    new Notification('Test notificatie 📅', { body: body });
+  }
+}
+</script>
+</body>
+</html>
